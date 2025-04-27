@@ -19,7 +19,7 @@ nexus-python-demo/
 ## Prerequisites
 
 - Python 3.6+
-- Docker (for running Nexus)
+- Docker
 - pip
 - twine
 - build
@@ -33,6 +33,46 @@ NEXUS_URL=http://localhost:8081
 NEXUS_USERNAME=admin
 NEXUS_PASSWORD=your-password-here
 ```
+
+## Docker Nexus Setup
+
+1. Pull the Nexus image:
+   ```bash
+   docker pull sonatype/nexus3
+   ```
+
+2. Wait for Nexus to start (it may take 2-3 minutes). You can check the logs:
+   ```bash
+   docker logs -f nexus
+   ```
+   Look for the message: "Started Sonatype Nexus OSS"
+
+3. Get the initial admin password:
+   ```bash
+   docker exec nexus cat /nexus-data/admin.password
+   ```
+
+4. Access Nexus web interface:
+   - Open http://localhost:8081 in your browser
+   - Login with username: `admin` and the password from step 5
+   - Change the admin password when prompted
+
+5. Configure Nexus for PyPI:
+   - Click the gear icon (⚙️) in the top right
+   - Go to "Security" > "Realms"
+   - Move "Docker Bearer Token Realm" to the right column
+   - Click "Save"
+
+6. Create a PyPI hosted repository:
+   - Click "Server Administration and Configuration" (⚙️)
+   - Go to "Repositories"
+   - Click "Create repository"
+   - Select "pypi (hosted)"
+   - Configure with these settings:
+     - Name: pypi-hosted
+     - Version policy: Release
+     - Deployment policy: Allow redeploy
+     - Click "Create repository"
 
 ## Setup
 
@@ -48,41 +88,12 @@ NEXUS_PASSWORD=your-password-here
    python3 -m pip show build
    ```
 
-2. Start Nexus using Docker:
-   ```bash
-   docker run -d -p 8081:8081 --name nexus sonatype/nexus3
-   ```
-
-3. Wait for Nexus to start (it may take a few minutes). You can check if it's ready by:
+2. Verify Nexus is running:
    ```bash
    curl -u $NEXUS_USERNAME:$NEXUS_PASSWORD $NEXUS_URL/service/rest/v1/status
    ```
 
-4. Create a PyPI hosted repository in Nexus using curl:
-   ```bash
-   curl -X POST \
-     -u $NEXUS_USERNAME:$NEXUS_PASSWORD \
-     -H "Content-Type: application/json" \
-     -d '{
-       "name": "pypi-hosted",
-       "type": "hosted",
-       "format": "pypi",
-       "online": true,
-       "storage": {
-         "blobStoreName": "default",
-         "strictContentTypeValidation": true,
-         "writePolicy": "allow_once"
-       }
-     }' \
-     $NEXUS_URL/service/rest/v1/repositories/pypi/hosted
-   ```
-
-5. Verify the repository was created:
-   ```bash
-   curl -u $NEXUS_USERNAME:$NEXUS_PASSWORD $NEXUS_URL/service/rest/v1/repositories
-   ```
-
-6. Configure your local environment:
+3. Configure your local environment:
    ```bash
    # Create .pypirc in your home directory
    cp .pypirc ~/.pypirc
@@ -170,6 +181,19 @@ NEXUS_PASSWORD=your-password-here
    python3 -m pip show build
    ```
 
+5. If Nexus container fails to start:
+   ```bash
+   # Check if port 8081 is already in use
+   lsof -i :8081
+   
+   # If needed, stop and remove the container
+   docker stop nexus
+   docker rm nexus
+   
+   # Start again with a different port
+   docker run -d -p 8082:8081 --name nexus sonatype/nexus3
+   ```
+
 ## Error Handling
 
 The calculator library includes error handling for:
@@ -180,7 +204,13 @@ The consumer application demonstrates how to handle these errors gracefully.
 
 ## Cleanup
 
-To stop and remove the Nexus container:
+To stop and remove the Nexus container while preserving data:
+```bash
+docker stop nexus
+docker rm nexus
+```
+
+To completely remove Nexus and its data:
 ```bash
 docker stop nexus
 docker rm nexus
